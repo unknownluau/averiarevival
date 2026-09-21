@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Roblox.ApiProxy\Roblox.ApiProxy.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Roblox.Website\Roblox.Website.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.DataStore\Roblox.Services.DataStore.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.Api\Roblox.Services.Api.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.Donation\Roblox.Services.Donation.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.Data\Roblox.Services.Data.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.Avatar\Roblox.Services.Avatar.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.Thumbnails\Roblox.Services.Thumbnails.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.Users\Roblox.Services.Users.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.Games\Roblox.Services.Games.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Services\Roblox.Services.Admin\Roblox.Services.Admin.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

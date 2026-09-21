@@ -1,0 +1,484 @@
+# requires Docker 24+ with Compose v2
+
+name: averia-dev
+
+x-dotnet-dev-env: &dotnet-dev-env
+  ASPNETCORE_ENVIRONMENT: Development
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_NOLOGO: "true"
+  DOTNET_gcServer: "0"
+  Postgres: "Host=postgres;Port=5432;Database=economy;Username=roblox;Password=roblox_dev_pass"
+  Redis: "redis:6379"
+  RedisAuthentication: ""
+  BaseUrl: "http://localhost:5200"
+  CdnBaseUrl: "http://localhost:5200"
+  IsCdnEnabled: "false"
+  Authorization: "AveriaInternal-dev-secret"
+  ArbiterAuthorization: "AveriaInternal-dev-secret"
+  RccAuthorization: "AveriaRcc-dev-secret"
+  Jwt__Sessions: "AveriaSessions-dev-secret"
+  BotAuthorization: "AveriaBot-dev-secret"
+  Discord__BotToken: ""
+  Discord__GuildId: ""
+  Discord__LogChannelId: ""
+  Render__BaseUrl: "http://host.docker.internal:3521"
+  Render__AssetQueue__FastLaneConcurrency: "2"
+  Render__AssetQueue__StreamConcurrency: "2"
+  Render__AssetQueue__ProcessingLeaseSeconds: "120"
+  Render__AssetQueue__JobDeadlineSeconds: "90"
+  Render__AssetQueue__MaximumAttempts: "4"
+  Render__AssetQueue__ReconciliationIntervalSeconds: "300"
+  Render__AssetQueue__ReconciliationBatchSize: "100"
+  AssetValidation__BaseUrl: "http://asset-validation:4300"
+  AssetValidation__Authorization: "AveriaAssetValidation-dev-secret"
+  Directories__Public: "/srv/app/api/public/"
+  Directories__Asset: "/srv/app/api/asset/"
+  Directories__Storage: "/srv/app/api/storage/"
+  Directories__Thumbnails: "/srv/app/api/public/images/Thumbnails/"
+  Directories__GroupIcons: "/srv/app/api/public/images/Groups/"
+  Directories__XmlTemplates: "/srv/app/Roblox/Roblox.Libraries/Templates/"
+  Directories__JsonData: "/srv/app/Roblox/Roblox.Libraries/Json/"
+  Directories__ScriptsData: "/srv/app/Roblox/Roblox.Libraries/StudioScripts/"
+  Directories__AdminBundle: "/srv/app/admin/public/"
+  Directories__EconomyChatBundle: "/srv/app/economy-chat/build/"
+  Directories__RCCLuaScripts: "/srv/app/Roblox/Roblox.Rendering/internalscripts/"
+  Directories__RCCService: "/srv/app/RCCService/"
+  Directories__RCCServiceGames: "/srv/app/RCCService/"
+  OpenTelemetry__OtlpEndpoint: "http://otel-collector:4317"
+
+x-dotnet-dev-service: &dotnet-dev-service
+  image: mcr.microsoft.com/dotnet/aspnet:10.0
+  volumes:
+    - .:/srv/app
+    - dotnet_artifacts:/tmp/averia-artifacts:ro
+  networks:
+    - economy
+  depends_on:
+    dotnet-build:
+      condition: service_completed_successfully
+    dotnet-watch:
+      condition: service_started
+    db-migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+  mem_limit: "${DOTNET_SERVICE_MEMORY_LIMIT:-1024m}"
+  cpus: "${DOTNET_SERVICE_CPU_LIMIT:-1.0}"
+  restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  dotnet_cache:
+  dotnet_artifacts:
+  go_pkg_cache:
+  go_bin_cache:
+  migrations_nm:
+  frontend_nm:
+  admin_nm:
+  prometheus_data:
+
+networks:
+  economy:
+    driver: bridge
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.156.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./telemetry/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    expose:
+      - "4317"
+      - "8889"
+    networks:
+      - economy
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yaml"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.12.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}"
+    volumes:
+      - ./telemetry/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+    networks:
+      - economy
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: roblox
+      POSTGRES_PASSWORD: roblox_dev_pass
+      POSTGRES_DB: economy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - economy
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U roblox -d economy" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - economy
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  db-migrate:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./api:/app
+      - migrations_nm:/app/node_modules
+    command: >
+      sh -c "LOCK_HASH=$$(sha256sum package.json package-lock.json 2>/dev/null | sha256sum | cut -d' ' -f1);
+      if [ ! -f node_modules/.deps-hash ] || [ \"$$(cat node_modules/.deps-hash)\" != \"$$LOCK_HASH\" ]; then
+      npm install && echo \"$$LOCK_HASH\" > node_modules/.deps-hash;
+      fi;
+      npx knex migrate:latest"
+    networks:
+      - economy
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: roblox
+      DB_PASS: roblox_dev_pass
+      DB_NAME: economy
+    restart: "no"
+
+  db-seed-trades:
+    image: node:20-alpine
+    profiles:
+      - seed
+    working_dir: /app
+    volumes:
+      - ./api:/app
+      - migrations_nm:/app/node_modules
+    command: >
+      sh -c "LOCK_HASH=$$(sha256sum package.json package-lock.json 2>/dev/null | sha256sum | cut -d' ' -f1);
+      if [ ! -f node_modules/.deps-hash ] || [ \"$$(cat node_modules/.deps-hash)\" != \"$$LOCK_HASH\" ]; then
+      npm install && echo \"$$LOCK_HASH\" > node_modules/.deps-hash;
+      fi;
+      node seeds/dev-trades.js"
+    networks:
+      - economy
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: roblox
+      DB_PASS: roblox_dev_pass
+      DB_NAME: economy
+    restart: "no"
+
+  dotnet-build:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /srv/app/Roblox
+    volumes:
+      - .:/srv/app
+      - dotnet_cache:/root/.nuget
+      - dotnet_artifacts:/tmp/averia-artifacts
+    networks:
+      - economy
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_USE_MSBUILD_SERVER: "false"
+      MSBUILDDISABLENODEREUSE: "1"
+      DOTNET_DISABLE_BUILD_SERVERS: "true"
+    command: sh /srv/app/scripts/docker-dotnet-init.sh
+    mem_limit: "${DOTNET_BUILD_MEMORY_LIMIT:-3072m}"
+    cpus: "${DOTNET_BUILD_CPU_LIMIT:-2.0}"
+    restart: "no"
+
+  dotnet-watch:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /srv/app/Roblox
+    volumes:
+      - .:/srv/app
+      - dotnet_cache:/root/.nuget
+      - dotnet_artifacts:/tmp/averia-artifacts
+    networks:
+      - economy
+    depends_on:
+      dotnet-build:
+        condition: service_completed_successfully
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      DOTNET_NOLOGO: "true"
+      DOTNET_WATCH_POLL_SECONDS: "${DOTNET_WATCH_POLL_SECONDS:-5}"
+    command: sh /srv/app/scripts/docker-dotnet-watch.sh
+    mem_limit: "${DOTNET_BUILD_MEMORY_LIMIT:-3072m}"
+    cpus: "${DOTNET_BUILD_CPU_LIMIT:-2.0}"
+    restart: unless-stopped
+
+  api-proxy:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Roblox.ApiProxy
+    # YARP IDs contain hyphens, so their overrides cannot travel through /bin/sh
+    # environment variables. Command-line configuration preserves the keys.
+    command:
+      - sh
+      - /srv/app/scripts/docker-dotnet-run.sh
+      - Roblox.ApiProxy
+      - --urls
+      - http://0.0.0.0:5200
+      - --ReverseProxy:Clusters:website-cluster:Destinations:primary:Address=http://roblox-website:5000
+      - --ReverseProxy:Clusters:gamepersistence-cluster:Destinations:primary:Address=http://game-persistence:5203
+      - --ReverseProxy:Clusters:api-cluster:Destinations:primary:Address=http://api-service:5204
+      - --ReverseProxy:Clusters:admin-cluster:Destinations:primary:Address=http://admin-service:5210
+      - --ReverseProxy:Clusters:games-cluster:Destinations:primary:Address=http://games-service:5211
+      - --ReverseProxy:Clusters:data-cluster:Destinations:primary:Address=http://data-service:5206
+      - --ReverseProxy:Clusters:donation-cluster:Destinations:primary:Address=http://donation-service:5205
+      - --ReverseProxy:Clusters:avatar-cluster:Destinations:primary:Address=http://avatar-service:5207
+      - --ReverseProxy:Clusters:thumbnails-cluster:Destinations:primary:Address=http://thumbnails-service:5208
+      - --ReverseProxy:Clusters:users-cluster:Destinations:primary:Address=http://users-service:5209
+      - --ReverseProxy:Routes:avatar-apisite-route:Match:Hosts:0=localhost
+      - --ReverseProxy:Routes:avatar-apisite-route:Match:Hosts:1=127.0.0.1
+      - --ReverseProxy:Routes:avatar-apisite-route:Match:Hosts:2=www.averia.lol
+      - --ReverseProxy:Routes:thumbnails-apisite-route:Match:Hosts:0=localhost
+      - --ReverseProxy:Routes:thumbnails-apisite-route:Match:Hosts:1=127.0.0.1
+      - --ReverseProxy:Routes:thumbnails-apisite-route:Match:Hosts:2=www.averia.lol
+      - --ReverseProxy:Routes:users-apisite-route:Match:Hosts:0=localhost
+      - --ReverseProxy:Routes:users-apisite-route:Match:Hosts:1=127.0.0.1
+      - --ReverseProxy:Routes:users-apisite-route:Match:Hosts:2=www.averia.lol
+      - --ReverseProxy:Routes:games-apisite-route:Match:Hosts:0=localhost
+      - --ReverseProxy:Routes:games-apisite-route:Match:Hosts:1=127.0.0.1
+      - --ReverseProxy:Routes:games-apisite-route:Match:Hosts:2=www.averia.lol
+    ports:
+      - "127.0.0.1:5200:5200"
+    environment:
+      <<: *dotnet-dev-env
+      FrontendProxy__DestinationPrefix: "http://frontend:3000/"
+      FrontendProxy__PublicHosts__0: "localhost"
+      FrontendProxy__PublicHosts__1: "127.0.0.1"
+      FrontendProxy__PublicHosts__2: "averia.lol"
+      FrontendProxy__PublicHosts__3: "www.averia.lol"
+      InternalServiceHosts__0: "localhost"
+      InternalServiceHosts__16: "127.0.0.1"
+    depends_on:
+      dotnet-build:
+        condition: service_completed_successfully
+      dotnet-watch:
+        condition: service_started
+      db-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      roblox-website:
+        condition: service_started
+      game-persistence:
+        condition: service_started
+      api-service:
+        condition: service_started
+      donation-service:
+        condition: service_started
+      avatar-service:
+        condition: service_started
+      thumbnails-service:
+        condition: service_started
+      users-service:
+        condition: service_started
+      games-service:
+        condition: service_started
+      admin-service:
+        condition: service_started
+      frontend:
+        condition: service_started
+
+  roblox-website:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Roblox.Website
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Website --urls http://0.0.0.0:5000
+    expose:
+      - "5000"
+    environment:
+      <<: *dotnet-dev-env
+      OwnerUserId__0: "1"
+      PackageShirtAssetId: "0"
+      PackagePantsAssetId: "0"
+      LeakCheckApiKey: "dev-placeholder-leakcheck-api-key-0000000000000000"
+      Twitter__Bearer: "dev-placeholder"
+      HCaptcha__Public: "1x00000000000000000000AA"
+      HCaptcha__Private: "1x0000000000000000000000000000000AA"
+
+  game-persistence:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.DataStore
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.DataStore --urls http://0.0.0.0:5203
+    expose:
+      - "5203"
+    environment:
+      <<: *dotnet-dev-env
+
+  api-service:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.Api
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.Api --urls http://0.0.0.0:5204
+    expose:
+      - "5204"
+    environment:
+      <<: *dotnet-dev-env
+
+  donation-service:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.Donation
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.Donation --urls http://0.0.0.0:5205
+    expose:
+      - "5205"
+    environment:
+      <<: *dotnet-dev-env
+      Discord__WebhookUrl: ""
+      Stripe__WebhookSecret: ""
+      Kofi__VerificationToken: ""
+      Rewarble__ApiKey: "${REWARBLE_API_KEY:-}"
+      Rewarble__BaseUrl: "${REWARBLE_BASE_URL:-https://api.rewarble.com}"
+      Rewarble__TestMode: "${REWARBLE_TEST_MODE:-false}"
+
+  data-service:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.Data
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.Data --urls http://0.0.0.0:5206
+    expose:
+      - "5206"
+    environment:
+      <<: *dotnet-dev-env
+
+  avatar-service:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.Avatar
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.Avatar --urls http://0.0.0.0:5207
+    expose:
+      - "5207"
+    environment:
+      <<: *dotnet-dev-env
+
+  thumbnails-service:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.Thumbnails
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.Thumbnails --urls http://0.0.0.0:5208
+    expose:
+      - "5208"
+    environment:
+      <<: *dotnet-dev-env
+
+  users-service:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.Users
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.Users --urls http://0.0.0.0:5209
+    expose:
+      - "5209"
+    environment:
+      <<: *dotnet-dev-env
+      OwnerUserId__0: "1"
+
+  games-service:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.Games
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.Games --urls http://0.0.0.0:5211
+    expose:
+      - "5211"
+    environment:
+      <<: *dotnet-dev-env
+
+  admin-service:
+    <<: *dotnet-dev-service
+    working_dir: /srv/app/Roblox/Services/Roblox.Services.Admin
+    command: sh /srv/app/scripts/docker-dotnet-run.sh Roblox.Services.Admin --urls http://0.0.0.0:5210
+    expose:
+      - "5210"
+    environment:
+      <<: *dotnet-dev-env
+      OwnerUserId__0: "1"
+      Telemetry__PrometheusBaseUrl: "http://prometheus:9090/"
+
+  asset-validation:
+    image: golang:1.25-alpine
+    working_dir: /app
+    volumes:
+      - ./AssetValidationServiceV2:/app
+      - go_pkg_cache:/go/pkg/mod
+      - go_bin_cache:/go/bin
+    command: sh -c "if ! command -v air >/dev/null 2>&1; then go install github.com/air-verse/air@latest; fi; air"
+    ports:
+      - "127.0.0.1:4300:4300"
+    networks:
+      - economy
+    restart: unless-stopped
+
+  admin:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./admin:/app
+      - admin_nm:/app/node_modules
+    command: >
+      sh -c "LOCK_HASH=$$(sha256sum package.json package-lock.json 2>/dev/null | sha256sum | cut -d' ' -f1);
+      if [ ! -f node_modules/.deps-hash ] || [ \"$$(cat node_modules/.deps-hash)\" != \"$$LOCK_HASH\" ]; then
+      npm install && echo \"$$LOCK_HASH\" > node_modules/.deps-hash;
+      fi;
+      npm run dev"
+    ports:
+      - "127.0.0.1:5173:5173"
+    networks:
+      - economy
+    environment:
+      VITE_API_BASE: "http://localhost:5200"
+    restart: unless-stopped
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - ./frontend/config.docker-dev.json:/app/config.json:ro
+      - frontend_nm:/app/node_modules
+    command: sh /app/scripts/docker-dev.sh
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - economy
+    environment:
+      PORT: "3000"
+      WATCHPACK_POLLING: "1000"
+      CHOKIDAR_USEPOLLING: "true"
+    restart: unless-stopped

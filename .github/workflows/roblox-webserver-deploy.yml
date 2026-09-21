@@ -1,0 +1,189 @@
+name: Roblox Webserver Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "Roblox/**"
+      - ".github/workflows/roblox-webserver-deploy.yml"
+      - "scripts/windows/**"
+
+concurrency:
+  group: roblox-webserver-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
+      WEB_SERVER_PORT: ${{ secrets.WEB_SERVER_PORT || '22' }}
+      WEB_SERVER_HOST: ${{ secrets.WEB_SERVER_HOST }}
+      WEB_SERVER_USER: ${{ secrets.WEB_SERVER_USER }}
+      DEPLOY_ROOT: ${{ vars.WEB_DEPLOY_ROOT || 'C:\AveriaServices' }}
+      STAGING_ROOT: ${{ vars.WEB_STAGING_ROOT || 'averia-deploy' }}
+      APIPROXY_SERVICE: ${{ vars.WEB_APIPROXY_SERVICE || 'Roblox.ApiProxy' }}
+      WEBSITE_SERVICE: ${{ vars.WEB_WEBSITE_SERVICE || 'Roblox.Website' }}
+      DATA_SERVICE: ${{ vars.WEB_DATA_SERVICE || 'Roblox.Services.Data' }}
+      DATASTORE_SERVICE: ${{ vars.WEB_DATASTORE_SERVICE || 'Roblox.Services.DataStore' }}
+      API_SERVICE: ${{ vars.WEB_API_SERVICE || 'Roblox.Services.Api' }}
+      DONATION_SERVICE: ${{ vars.WEB_DONATION_SERVICE || 'Roblox.Services.Donation' }}
+      AVATAR_SERVICE: ${{ vars.WEB_AVATAR_SERVICE || 'Roblox.Services.Avatar' }}
+      THUMBNAILS_SERVICE: ${{ vars.WEB_THUMBNAILS_SERVICE || 'Roblox.Services.Thumbnails' }}
+      USERS_SERVICE: ${{ vars.WEB_USERS_SERVICE || 'Roblox.Services.Users' }}
+      ADMIN_SERVICE: ${{ vars.WEB_ADMIN_SERVICE || 'Roblox.Services.Admin' }}
+      GAMES_SERVICE: ${{ vars.WEB_GAMES_SERVICE || 'Roblox.Services.Games' }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: Roblox/**/packages.lock.json
+
+      - name: Restore solution
+        run: dotnet restore Roblox\Roblox.sln --locked-mode
+
+      - name: Build deployable projects
+        run: |
+          dotnet build Roblox\Roblox.Website\Roblox.Website.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Roblox.ApiProxy\Roblox.ApiProxy.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.Data\Roblox.Services.Data.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.DataStore\Roblox.Services.DataStore.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.Api\Roblox.Services.Api.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.Donation\Roblox.Services.Donation.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.Avatar\Roblox.Services.Avatar.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.Thumbnails\Roblox.Services.Thumbnails.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.Users\Roblox.Services.Users.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.Admin\Roblox.Services.Admin.csproj -c Release --no-restore -m:1
+          dotnet build Roblox\Services\Roblox.Services.Games\Roblox.Services.Games.csproj -c Release --no-restore -m:1
+
+      - name: Publish deployable projects
+        run: |
+          $bundleRoot = Join-Path $env:GITHUB_WORKSPACE "deploy_bundle"
+          Remove-Item $bundleRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $bundleRoot | Out-Null
+
+          dotnet publish Roblox\Roblox.Website\Roblox.Website.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Website")
+          dotnet publish Roblox\Roblox.ApiProxy\Roblox.ApiProxy.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.ApiProxy")
+          dotnet publish Roblox\Services\Roblox.Services.Data\Roblox.Services.Data.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.Data")
+          dotnet publish Roblox\Services\Roblox.Services.DataStore\Roblox.Services.DataStore.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.DataStore")
+          dotnet publish Roblox\Services\Roblox.Services.Api\Roblox.Services.Api.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.Api")
+          dotnet publish Roblox\Services\Roblox.Services.Donation\Roblox.Services.Donation.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.Donation")
+          dotnet publish Roblox\Services\Roblox.Services.Avatar\Roblox.Services.Avatar.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.Avatar")
+          dotnet publish Roblox\Services\Roblox.Services.Thumbnails\Roblox.Services.Thumbnails.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.Thumbnails")
+          dotnet publish Roblox\Services\Roblox.Services.Users\Roblox.Services.Users.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.Users")
+          dotnet publish Roblox\Services\Roblox.Services.Admin\Roblox.Services.Admin.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.Admin")
+          dotnet publish Roblox\Services\Roblox.Services.Games\Roblox.Services.Games.csproj -c Release --no-build -o (Join-Path $bundleRoot "Roblox.Services.Games")
+
+      - name: Add deployment scripts
+        run: |
+          $scriptTarget = Join-Path $env:GITHUB_WORKSPACE "deploy_bundle\scripts\windows"
+          New-Item -ItemType Directory -Force -Path $scriptTarget | Out-Null
+          Copy-Item scripts\windows\Deploy-Roblox-WebServices.ps1 $scriptTarget -Force
+
+      - name: Prepare SSH key
+        env:
+          WEB_SERVER_SSH_KEY: ${{ secrets.WEB_SERVER_SSH_KEY }}
+        run: |
+          $sshDirectory = Join-Path $env:USERPROFILE ".ssh"
+          New-Item -ItemType Directory -Force -Path $sshDirectory | Out-Null
+
+          $keyPath = Join-Path $sshDirectory "averia_deploy_key"
+          $key = $env:WEB_SERVER_SSH_KEY
+          if ([string]::IsNullOrWhiteSpace($key)) {
+            throw "WEB_SERVER_SSH_KEY is empty."
+          }
+
+          $key = $key.Trim()
+          $key = $key -replace "\\r\\n", "`n"
+          $key = $key -replace "\\n", "`n"
+          $key = $key -replace "`r`n", "`n"
+          $key = $key -replace "`r", "`n"
+
+          [System.IO.File]::WriteAllText(
+            $keyPath,
+            $key + "`n",
+            [System.Text.UTF8Encoding]::new($false))
+
+          icacls $keyPath /inheritance:r | Out-Null
+          icacls $keyPath /grant:r "$($env:USERNAME):(R)" | Out-Null
+          & ssh-keygen -y -f $keyPath | Out-Null
+          "SSH_KEY_PATH=$keyPath" | Add-Content -LiteralPath $env:GITHUB_ENV
+
+      - name: Archive deploy bundle
+        run: |
+          tar -czf roblox-webserver-deploy-bundle.tar.gz -C deploy_bundle .
+
+      - name: Create remote staging directory
+        run: |
+          function ConvertTo-PowerShellLiteral {
+            param([string]$Value)
+            return "'" + $Value.Replace("'", "''") + "'"
+          }
+
+          $stagingPath = "$($env:STAGING_ROOT)\$($env:GITHUB_RUN_ID)"
+          $stagingLiteral = ConvertTo-PowerShellLiteral $stagingPath
+          $remoteScript = @"
+          `$stagingRoot = Join-Path `$env:USERPROFILE $stagingLiteral
+          New-Item -ItemType Directory -Force -Path `$stagingRoot | Out-Null
+          "@
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($remoteScript))
+          $remote = "$($env:WEB_SERVER_USER)@$($env:WEB_SERVER_HOST)"
+          & ssh -i $env:SSH_KEY_PATH -o StrictHostKeyChecking=no -p $env:WEB_SERVER_PORT $remote "cmd /c powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded"
+
+      - name: Copy deploy bundle to server
+        run: |
+          $remoteTarget = "$($env:WEB_SERVER_USER)@$($env:WEB_SERVER_HOST):$($env:STAGING_ROOT)/$($env:GITHUB_RUN_ID)/roblox-webserver-deploy-bundle.tar.gz"
+          & scp -i $env:SSH_KEY_PATH -O -o StrictHostKeyChecking=no -P $env:WEB_SERVER_PORT roblox-webserver-deploy-bundle.tar.gz $remoteTarget
+
+      - name: Deploy and restart services
+        run: |
+          function ConvertTo-PowerShellLiteral {
+            param([string]$Value)
+            return "'" + $Value.Replace("'", "''") + "'"
+          }
+
+          $stagingPath = "$($env:STAGING_ROOT)\$($env:GITHUB_RUN_ID)"
+          $stagingLiteral = ConvertTo-PowerShellLiteral $stagingPath
+          $deployRootLiteral = ConvertTo-PowerShellLiteral $env:DEPLOY_ROOT
+          $apiProxyServiceLiteral = ConvertTo-PowerShellLiteral $env:APIPROXY_SERVICE
+          $websiteServiceLiteral = ConvertTo-PowerShellLiteral $env:WEBSITE_SERVICE
+          $dataServiceLiteral = ConvertTo-PowerShellLiteral $env:DATA_SERVICE
+          $dataStoreServiceLiteral = ConvertTo-PowerShellLiteral $env:DATASTORE_SERVICE
+          $apiServiceLiteral = ConvertTo-PowerShellLiteral $env:API_SERVICE
+          $donationServiceLiteral = ConvertTo-PowerShellLiteral $env:DONATION_SERVICE
+          $avatarServiceLiteral = ConvertTo-PowerShellLiteral $env:AVATAR_SERVICE
+          $thumbnailsServiceLiteral = ConvertTo-PowerShellLiteral $env:THUMBNAILS_SERVICE
+          $usersServiceLiteral = ConvertTo-PowerShellLiteral $env:USERS_SERVICE
+          $adminServiceLiteral = ConvertTo-PowerShellLiteral $env:ADMIN_SERVICE
+          $gamesServiceLiteral = ConvertTo-PowerShellLiteral $env:GAMES_SERVICE
+
+          $remoteScript = @"
+          `$stagingRoot = Join-Path `$env:USERPROFILE $stagingLiteral
+          tar -xf (Join-Path `$stagingRoot 'roblox-webserver-deploy-bundle.tar.gz') -C `$stagingRoot
+          & (Join-Path `$stagingRoot 'scripts\windows\Deploy-Roblox-WebServices.ps1') ``
+            -SourceRoot `$stagingRoot ``
+            -DeployRoot $deployRootLiteral ``
+            -ApiProxyServiceName $apiProxyServiceLiteral ``
+            -WebsiteServiceName $websiteServiceLiteral ``
+            -DataServiceName $dataServiceLiteral ``
+            -DataStoreServiceName $dataStoreServiceLiteral ``
+            -ApiServiceName $apiServiceLiteral ``
+            -DonationServiceName $donationServiceLiteral ``
+            -AvatarServiceName $avatarServiceLiteral ``
+            -ThumbnailsServiceName $thumbnailsServiceLiteral ``
+            -UsersServiceName $usersServiceLiteral ``
+            -AdminServiceName $adminServiceLiteral ``
+            -GamesServiceName $gamesServiceLiteral
+          "@
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($remoteScript))
+          $remote = "$($env:WEB_SERVER_USER)@$($env:WEB_SERVER_HOST)"
+          & ssh -i $env:SSH_KEY_PATH -o StrictHostKeyChecking=no -p $env:WEB_SERVER_PORT $remote "cmd /c powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded"

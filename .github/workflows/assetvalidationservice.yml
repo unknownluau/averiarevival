@@ -1,0 +1,21 @@
+name: AssetValidationService
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "AssetValidationServiceV2/**"
+      - ".github/workflows/assetvalidationservice.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.18"
+          cache-dependency-path: AssetValidationServiceV2/go.sum
+      - run: go build ./...
+        working-directory: AssetValidationServiceV2

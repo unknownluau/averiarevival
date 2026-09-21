@@ -1,0 +1,6 @@
+**/obj
+**/Properties
+**/appsettings.json
+**/appsettings.*.json
+**/bin
+*.DotSettings.user

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>8618</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Roblox.ServiceDefaults\Roblox.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\Roblox.Exceptions\Roblox.Exceptions.csproj" />
+    <ProjectReference Include="..\..\Roblox.Services\Roblox.Services.csproj" />
+    <ProjectReference Include="..\..\Roblox.Web.Infrastructure\Roblox.Web.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

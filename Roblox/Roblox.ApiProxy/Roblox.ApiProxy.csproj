@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <PublishAot>false</PublishAot>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Services\Roblox.ServiceDefaults\Roblox.ServiceDefaults.csproj" />
+      <ProjectReference Include="..\Roblox.Web.Infrastructure\Roblox.Web.Infrastructure.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Update="appsettings.json"
+               Condition="'$(ExcludeAppSettingsFromOutput)' == 'true'"
+               CopyToOutputDirectory="Never"
+               CopyToPublishDirectory="Never" />
+    </ItemGroup>
+
+    <Target Name="RemoveAppSettingsFromBuildOutput"
+            AfterTargets="Build;Publish"
+            Condition="'$(ExcludeAppSettingsFromOutput)' == 'true'">
+      <Delete Files="$(TargetDir)appsettings.json" />
+    </Target>
+
+</Project>

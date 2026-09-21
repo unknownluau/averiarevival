@@ -1,0 +1,81 @@
+# Optional production override for a single-machine rehearsal.
+# Usage:
+#   docker compose --env-file .env.prod.local -f docker-compose.prod.yml -f docker-compose.prod.local-deps.yml up -d
+
+volumes:
+  postgres_data:
+  redis_data:
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${LOCAL_POSTGRES_USER:-roblox}"
+      POSTGRES_PASSWORD: "${LOCAL_POSTGRES_PASSWORD:-change-me}"
+      POSTGRES_DB: "${LOCAL_POSTGRES_DB:-economy}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - averia
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${LOCAL_POSTGRES_USER:-roblox} -d ${LOCAL_POSTGRES_DB:-economy}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - averia
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrations:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: "${LOCAL_POSTGRES_USER:-roblox}"
+      DB_PASS: "${LOCAL_POSTGRES_PASSWORD:-change-me}"
+      DB_NAME: "${LOCAL_POSTGRES_DB:-economy}"
+
+  api-proxy:
+    environment: &local-deps-env
+      Postgres: "Host=postgres;Port=5432;Database=${LOCAL_POSTGRES_DB:-economy};Username=${LOCAL_POSTGRES_USER:-roblox};Password=${LOCAL_POSTGRES_PASSWORD:-change-me}"
+      Redis: "redis:6379"
+
+  roblox-website:
+    environment: *local-deps-env
+
+  game-persistence:
+    environment: *local-deps-env
+
+  api-service:
+    environment: *local-deps-env
+
+  donation-service:
+    environment: *local-deps-env
+
+  data-service:
+    environment: *local-deps-env
+
+  avatar-service:
+    environment: *local-deps-env
+
+  thumbnails-service:
+    environment: *local-deps-env
+
+  admin-service:
+    environment: *local-deps-env

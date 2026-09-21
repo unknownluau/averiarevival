@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Roblox.Rendering.Contracts\Roblox.Rendering.Contracts.csproj" />
+    <ProjectReference Include="..\Services\Roblox.ServiceDefaults\Roblox.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Roblox.Web.Infrastructure\Roblox.Web.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="RenderScripts\Legacy\*.lua"
+                      LogicalName="Averia.RccServiceArbiter.RenderScripts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="RenderScripts\Modern\*.json"
+                      LogicalName="Averia.RccServiceArbiter.RenderScripts.Modern.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

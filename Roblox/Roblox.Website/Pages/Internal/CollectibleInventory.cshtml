@@ -1,0 +1,105 @@
+@page "/internal/collectibles"
+@model Roblox.Website.Pages.Internal.CollectibleInventory
+
+@{
+    Layout = "Shared/_Layout";
+}
+
+<div class="container mt-4 mb-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card card-body bg-dark text-light">
+                <!--
+                Please don't scrape this page.
+                Use /apisite/inventory/v1/users/{userId}/assets/collectibles instead.
+                -->
+                @if (Model.errorMessage != null)
+                {
+                    <p class="text-danger mb-0">@Model.errorMessage</p>
+                }
+                else
+                {
+                    <h3>@Model.username</h3>
+                    <div class="row">
+                        <div class="col-12 col-lg-3">
+                            <img class="w-100 mx-auto" src="/thumbs/avatar.ashx?userId=@Model.userId"/>
+                            <p class="fw-bolder">Total RAP: @Model.totalRap.ToString("N0")</p>
+                        </div>
+                        <div class="col-12 col-lg-9">
+                            @if (Model.inventory.Count == 0 && Model.pageIndex == 0)
+                            {
+                                <p class="text-center mt-4">Player does not have any collectible items.</p>
+                            }
+                            else
+                            {
+                                <div class="row">
+                                    @foreach (var item in Model.inventory)
+                                    {
+                                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                                            <div class="card bg-dark">
+                                                <a href="/catalog/@item.assetId/--">
+                                                    <img class="w-100 mx-auto" src="/thumbs/asset.ashx?assetId=@item.assetId"/>
+                                                </a>
+                                                <div class="card-body">
+                                                    <p class="mb-0 fw-bolder text-truncate">@item.name</p>
+                                                    <p class="mb-0 text-truncate">RAP: @item.recentAveragePrice.ToString("N0")</p>
+                                                    @if (item.serialNumber != null)
+                                                    {
+                                                        <p class="mb-0 text-truncate">Serial: #@(item.serialNumber) of @(item.serialCount?.ToString() ?? "-")</p>
+                                                    }
+                                                    else
+                                                    {
+                                                        <p class="mb-0 text-truncate">UAID: @item.userAssetId</p>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.totalPages > 1)
+{
+    <div class="container mb-3">
+        <div class="d-flex justify-content-center gap-1 flex-wrap">
+            @{
+                var windowStart = Math.Max(0, Model.pageIndex - 4);
+                var windowEnd = Math.Min(Model.totalPages - 1, Model.pageIndex + 4);
+            }
+            @if (windowStart > 0)
+            {
+                <a class="btn btn-secondary btn-sm" href="/internal/collectibles?userId=@Model.userId&amp;pageIndex=0">1</a>
+                @if (windowStart > 1)
+                {
+                    <span class="text-light align-self-center px-1" style="cursor:default">…</span>
+                }
+            }
+            @for (var i = windowStart; i <= windowEnd; i++)
+            {
+                if (i == Model.pageIndex)
+                {
+                    <span class="btn btn-primary btn-sm">@(i + 1)</span>
+                }
+                else
+                {
+                    <a class="btn btn-secondary btn-sm" href="/internal/collectibles?userId=@Model.userId&amp;pageIndex=@i">@(i + 1)</a>
+                }
+            }
+            @if (windowEnd < Model.totalPages - 1)
+            {
+                @if (windowEnd < Model.totalPages - 2)
+                {
+                    <span class="text-light align-self-center px-1" style="cursor:default">…</span>
+                }
+                <a class="btn btn-secondary btn-sm" href="/internal/collectibles?userId=@Model.userId&amp;pageIndex=@(Model.totalPages - 1)">@Model.totalPages</a>
+            }
+        </div>
+    </div>
+}

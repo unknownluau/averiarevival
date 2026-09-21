@@ -1,0 +1,11 @@
+name = "r2-cdn-worker"
+main = "index.js"
+compatibility_date = "2025-03-01"
+
+routes = [
+  { pattern = "cdn.averia.lol/*", zone_name = "averia.lol" }
+]
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "averia-cdn"   

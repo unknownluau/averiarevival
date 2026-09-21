@@ -1,0 +1,45 @@
+{
+  "name": "averia-2019-frontend",
+  "version": "2.4.0",
+  "author": "Zyythy, Yusof, shikataginaii, Floatzel, other people i forgor lal",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack && node lib/postbuild.mjs",
+    "buildc": "next build --webpack",
+    "builda": "cross-env ANALYZE=true next build --webpack",
+    "start": "next start",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@microsoft/signalr": "^10.0.0",
+    "axios": "1.18.1",
+    "bootstrap": "^5.3.8",
+    "dayjs": "^1.11.21",
+    "dompurify": "^3.4.12",
+    "highcharts": "^13.0.0",
+    "highcharts-react-official": "^3.2.3",
+    "jsonwebtoken": "9.0.3",
+    "jss": "^10.10.0",
+    "next": "^16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-jss": "^10.10.0",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "unstated-next": "^1.1.0"
+  },
+  "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.10",
+    "@types/node": "26.1.1",
+    "cross-env": "^10.1.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.2.10",
+    "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "postcss": "8.5.16"
+  }
+}

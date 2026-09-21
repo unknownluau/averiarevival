@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup>
+    <Watch Remove="**/bin/**;**/obj/**" />
+  </ItemGroup>
+</Project>

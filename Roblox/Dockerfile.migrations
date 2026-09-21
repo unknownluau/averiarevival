@@ -1,0 +1,12 @@
+FROM node:20-alpine
+
+WORKDIR /migrations
+
+COPY api/migrations ./migrations
+COPY api/knexfile.js ./
+COPY api/package.json ./
+COPY api/package-lock.json ./
+
+RUN npm ci && mkdir -p /migrations/public/images
+
+CMD ["npx", "knex", "migrate:latest"]

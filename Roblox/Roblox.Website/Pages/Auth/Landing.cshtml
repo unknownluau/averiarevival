@@ -1,0 +1,313 @@
+@page "/"
+@model Roblox.Website.Pages.Auth.Landing
+@{
+    Layout = null;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Averia</title>
+    <meta name="description" content="Experience nostalgia once again with Averia.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Source Sans Pro', sans-serif;
+            overflow-x: hidden;
+            margin: 0;
+        }
+
+        .landing-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: url('/UnsecuredContent/ThumbnailSignUp.png') center/cover;
+            z-index: 0;
+        }
+
+        .landing-navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            background: rgba(0,0,0,0.65);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 56px;
+            box-sizing: border-box;
+        }
+
+        .landing-content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            padding-top: 100px;
+            padding-bottom: 20px;
+            min-height: 100vh;
+        }
+
+        .signup-panel {
+            background: rgba(245,245,245,0.95);
+            padding: 25px;
+            border-radius: 6px;
+            width: 380px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            margin: 20px;
+        }
+
+        .custom-btn-primary {
+            background-color: #5100A5;
+            border-color: #5100A5;
+            color: white;
+        }
+
+        .custom-btn-primary:hover {
+            background-color: #6600CF;
+            border-color: #6600CF;
+            color: white;
+        }
+
+        .video-footer {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 40px 20px 80px;
+        }
+
+        .promo-video {
+            max-width: 560px;
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(6px);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-modal-card {
+            background: rgba(245,245,245,0.95);
+            border-radius: 6px;
+            padding: 25px;
+            width: 380px;
+            position: relative;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .modal-close-btn {
+            position: absolute;
+            top: 10px; right: 14px;
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            color: #888;
+            line-height: 1;
+        }
+
+        .modal-close-btn:hover { color: #333; }
+
+        .robot-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .robot-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 24px 20px;
+            min-width: 320px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .copyright-footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.5);
+            color: #ccc;
+            font-size: 10px;
+            text-align: center;
+            padding: 5px;
+            z-index: 50;
+        }
+
+        .discord-verified-box {
+            background: rgba(88,101,242,0.12);
+            border: 1px solid rgba(88,101,242,0.35);
+            border-radius: 6px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        @@media (max-width: 900px) {
+            .landing-navbar { min-height: 50px; flex-wrap: wrap; }
+            .landing-content { flex-direction: column; padding-top: 120px; }
+            .signup-panel { width: 95%; margin: 10px auto; }
+            .promo-video { max-width: 95%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="landing-bg"></div>
+
+    <nav class="landing-navbar">
+        <a href="/"><img src="/img/averia-icon-square.png" height="30" alt="Averia"></a>
+        <a href="https://discord.gg/averia" target="_blank" class="btn btn-sm btn-outline-light">Support</a>
+        <button id="openLoginModal" class="btn btn-sm custom-btn-primary fw-bold ms-auto">Log In</button>
+    </nav>
+
+    <div class="landing-content">
+        <div class="landing-center text-center px-4">
+            <div class="bg-dark bg-opacity-50 text-white p-2 mt-3 fs-4">Repowering Imagination&#8482;</div>
+        </div>
+
+        <div class="signup-panel">
+            <h2 class="fs-5 fw-bold text-center mb-3 text-dark">SIGN UP NOW</h2>
+
+            @if (Model.discordUser == null) {
+                <a href="/api/discordapplicationcallback" class="btn btn-primary w-100 mb-3 fw-bold" style="background-color:#5865f2;border:none;">
+                    <i class="bi bi-discord"></i> Verify with Discord
+                </a>
+            } else {
+                <div class="discord-verified-box">
+                    @if (Model.discordAvatarUrl != null) {
+                        <img src="@Model.discordAvatarUrl" width="40" height="40" class="rounded-circle flex-shrink-0" alt="avatar">
+                    } else {
+                        <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#5865f2;color:white;font-weight:bold;font-size:16px;">
+                            @Model.discordUser.Username[0].ToString().ToUpper()
+                        </div>
+                    }
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-bold text-dark text-truncate" style="font-size:14px;">@@@Model.discordUser.Username</div>
+                        <div class="text-muted text-truncate" style="font-size:12px;">ID: @Model.discordUser.Id</div>
+                    </div>
+                    <span class="badge" style="background:#57f287;color:#1a1a1a;font-size:11px;">Verified</span>
+                </div>
+            }
+
+            @if (Model.signupError != null) {
+                <p class="text-danger small">@Model.signupError</p>
+            }
+            @if (Model.signupSuccess != null) {
+                <p class="text-success small">@Model.signupSuccess</p>
+            }
+
+            <form method="post" id="signupForm">
+                <input type="hidden" name="formAction" value="signup">
+                <input type="hidden" name="cf-turnstile-response" id="signupCaptchaResponse">
+                @Html.AntiForgeryToken()
+
+                <input type="text" name="signupUsername" class="form-control mb-2" placeholder="Username" required @(Model.signupDisabled ? "disabled" : "")>
+                <input type="password" name="signupPassword" class="form-control mb-2" placeholder="Password" required @(Model.signupDisabled ? "disabled" : "")>
+                <input type="password" name="signupConfirmPassword" class="form-control mb-3" placeholder="Confirm Password" required @(Model.signupDisabled ? "disabled" : "")>
+
+                <button type="button" id="signupSubmitBtn" class="btn w-100 fw-bold @(Model.signupDisabled ? "btn-secondary disabled" : "custom-btn-primary")" @(Model.signupDisabled ? "disabled" : "")>
+                    Sign Up
+                </button>
+            </form>
+
+            <div class="mt-2 d-flex justify-content-between" style="font-size:12px;">
+                <a href="#" id="alreadyHaveAccount" class="text-muted">Already have an account? Login!</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="video-footer">
+        <h2 class="text-white fw-bold mb-3" style="text-shadow:2px 2px 8px #000;">JOIN OVER 70,000 USERS</h2>
+        <video class="promo-video" autoplay muted loop playsinline>
+            <source src="/UnsecuredContent/AveriaPromotionalVideo.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <div id="loginModalOverlay" class="modal-overlay" style="display:none;">
+        <div class="login-modal-card">
+            <button class="modal-close-btn" id="closeLoginModal">&times;</button>
+            <h5 class="fw-bold text-center mb-3">Log In</h5>
+
+            @if (Model.loginError != null) {
+                <p class="text-danger small text-center">@Model.loginError</p>
+            }
+
+            <form method="post" id="loginForm">
+                <input type="hidden" name="formAction" value="login">
+                <input type="hidden" name="cf-turnstile-response" id="loginCaptchaResponse">
+                @Html.AntiForgeryToken()
+                <input type="text" name="loginUsername" placeholder="Username" class="form-control mb-2" value="@Model.loginUsername" @(Model.loginDisabled ? "disabled" : "")>
+                <input type="password" name="loginPassword" placeholder="Password" class="form-control mb-2" @(Model.loginDisabled ? "disabled" : "")>
+                <input type="text" name="loginTotpCode" placeholder="2FA Code (Optional)" class="form-control mb-3" @(Model.loginDisabled ? "disabled" : "")>
+                <button type="button" id="loginSubmitBtn" class="btn w-100 fw-bold custom-btn-primary @(Model.loginDisabled ? "disabled" : "")" @(Model.loginDisabled ? "disabled" : "")>
+                    Log In
+                </button>
+            </form>
+
+            <div class="mt-2 text-center" style="font-size:12px;">
+                <a href="/auth/password-reset" class="text-muted">Forgot Password?</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="robotCheckOverlay" class="robot-overlay" style="display:none;">
+        <div class="robot-card">
+            <h6 class="fw-bold text-center mb-1">Just a moment...</h6>
+            <p class="text-center text-muted mb-3" style="font-size:13px;">We need to make sure you&rsquo;re not a robot.</p>
+            <div class="d-flex justify-content-center">
+                <div id="captchaWidget"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="copyright-footer">
+        &copy; 2026 Averia. Not affiliated with Roblox Corporation.
+    </div>
+
+    <div id="landing-config" data-sitekey="@Model.siteKey" data-autoopenlogin="@(Model.loginError != null ? "true" : "false")" style="display:none;"></div>
+
+    <script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script>
+    <script src="/js/landing.js" defer></script>
+
+    <script>
+        document.getElementById('openLoginModal').onclick = function() {
+            document.getElementById('loginModalOverlay').style.display = 'flex';
+        };
+        document.getElementById('closeLoginModal').onclick = function() {
+            document.getElementById('loginModalOverlay').style.display = 'none';
+        };
+        document.getElementById('alreadyHaveAccount').onclick = function(e) {
+            e.preventDefault();
+            document.getElementById('loginModalOverlay').style.display = 'flex';
+        };
+        document.getElementById('loginModalOverlay').onclick = function(e) {
+            if (e.target === this) this.style.display = 'none';
+        };
+        @if (Model.loginError != null) {
+            <text>document.getElementById('loginModalOverlay').style.display = 'flex';</text>
+        }
+    </script>
+</body>
+</html>

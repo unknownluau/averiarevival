@@ -1,0 +1,6 @@
+@Roblox.Services.DataStore_HostAddress = http://localhost:5203
+
+GET {{Roblox.Services.DataStore_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

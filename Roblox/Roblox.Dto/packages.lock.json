@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "roblox.configuration": {
+        "type": "Project"
+      },
+      "roblox.logging": {
+        "type": "Project"
+      },
+      "roblox.models": {
+        "type": "Project",
+        "dependencies": {
+          "Roblox.Configuration": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}

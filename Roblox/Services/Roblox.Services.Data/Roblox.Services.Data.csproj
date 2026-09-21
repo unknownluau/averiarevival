@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Roblox.ServiceDefaults\Roblox.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\Roblox.Services\Roblox.Services.csproj" />
+    <ProjectReference Include="..\..\Roblox.Web.Infrastructure\Roblox.Web.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

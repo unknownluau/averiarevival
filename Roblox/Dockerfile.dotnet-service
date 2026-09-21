@@ -1,0 +1,23 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+
+WORKDIR /src
+COPY . .
+
+ARG PROJECT_PATH
+RUN dotnet publish "$PROJECT_PATH" -c Release -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+WORKDIR /app
+
+ARG ASSEMBLY_NAME
+ENV ASSEMBLY_NAME=$ASSEMBLY_NAME
+
+COPY --from=build /app/publish ./
+COPY --from=build /src/Roblox/Roblox.Libraries/Templates ./Roblox/Roblox.Libraries/Templates
+COPY --from=build /src/Roblox/Roblox.Libraries/Json ./Roblox/Roblox.Libraries/Json
+COPY --from=build /src/Roblox/Roblox.Libraries/StudioScripts ./Roblox/Roblox.Libraries/StudioScripts
+COPY --from=build /src/Roblox/Roblox.Rendering/internalscripts ./Roblox/Roblox.Rendering/internalscripts
+COPY --from=build /src/admin/public ./admin/public
+
+CMD ["sh", "-c", "dotnet ${ASSEMBLY_NAME}.dll"]

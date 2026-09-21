@@ -1,0 +1,16 @@
+api/public
+api/storage
+api/node_modules
+frontend/node_modules
+frontend/.next
+Roblox/**/bin
+Roblox/**/obj
+admin/node_modules
+game-renderer/node_modules
+game-server/node_modules
+# unused services
+2021-roblox
+AssetValidationService
+deployment
+economy-chat
+game-server

@@ -1,0 +1,123 @@
+# !!! THIS IS ONLY FOR INTEGRATION OR UNIT TESTING !!!
+services:
+  redis:
+    image: "redis:alpine"
+    expose:
+      - "6379"
+  postgres:
+    image: "postgres:13.3"
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: "roblox_integration_test"
+      POSTGRES_USER: "roblox_integration_test_user"
+      POSTGRES_PASSWORD: "docker"
+  migrations:
+    build:
+      context: ../../
+      dockerfile: Roblox/Roblox.IntegrationTest/docker/migrations.dockerfile
+      network: host
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: roblox_integration_test_user
+      DB_PASS: docker
+      DB_NAME: roblox_integration_test
+  integration_test:
+    build:
+      context: ../../
+      dockerfile: Roblox/Roblox.IntegrationTest/docker/run.dockerfile
+      network: host
+    depends_on:
+      - postgres
+      - redis
+  avatar_route_test:
+    build:
+      context: ../../
+      dockerfile: Roblox/Roblox.IntegrationTest/docker/avatar-route-tests.dockerfile
+      network: host
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AVERIA_REQUIRE_DOCKER_TESTS: "true"
+      AVERIA_TEST_POSTGRES: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      AVERIA_TEST_REDIS: "redis:6379"
+      Postgres: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      Redis: "redis:6379"
+      Authorization: "AvatarRouteTestAuthorization"
+      RccAuthorization: "AvatarRouteTestRccAuthorization"
+      Directories__JsonData: "/src/Roblox.Libraries/Json/"
+  api_route_test:
+    build:
+      context: ../../
+      dockerfile: Roblox/Roblox.IntegrationTest/docker/api-route-tests.dockerfile
+      network: host
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AVERIA_REQUIRE_DOCKER_TESTS: "true"
+      AVERIA_TEST_POSTGRES: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      AVERIA_TEST_REDIS: "redis:6379"
+      Postgres: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      Redis: "redis:6379"
+      Authorization: "ApiRouteTestAuthorization"
+      RccAuthorization: "ApiRouteTestRccAuthorization"
+      Jwt__Sessions: "api-route-test-session-jwt-secret"
+  users_route_test:
+    build:
+      context: ../../
+      dockerfile: Roblox/Roblox.IntegrationTest/docker/users-route-tests.dockerfile
+      network: host
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AVERIA_REQUIRE_DOCKER_TESTS: "true"
+      AVERIA_TEST_POSTGRES: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      AVERIA_TEST_REDIS: "redis:6379"
+      Postgres: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      Redis: "redis:6379"
+      Authorization: "UsersRouteTestAuthorization"
+      RccAuthorization: "UsersRouteTestRccAuthorization"
+      Jwt__Sessions: "users-route-test-session-jwt-secret"
+      OwnerUserId__0: "1"
+  admin_route_test:
+    build:
+      context: ../../
+      dockerfile: Roblox/Roblox.IntegrationTest/docker/admin-route-tests.dockerfile
+      network: host
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AVERIA_REQUIRE_DOCKER_TESTS: "true"
+      AVERIA_TEST_POSTGRES: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      AVERIA_TEST_REDIS: "redis:6379"
+      Postgres: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      Redis: "redis:6379"
+      Authorization: "AdminRouteTestAuthorization"
+      RccAuthorization: "AdminRouteTestRccAuthorization"
+      Jwt__Sessions: "admin-route-test-session-jwt-secret"
+      OwnerUserId__0: "1"
+  web_infrastructure_test:
+    build:
+      context: ../../
+      dockerfile: Roblox/Roblox.IntegrationTest/docker/web-infrastructure-tests.dockerfile
+      network: host
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AVERIA_REQUIRE_DOCKER_TESTS: "true"
+      AVERIA_TEST_POSTGRES: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      AVERIA_TEST_REDIS: "redis:6379"
+      Postgres: "Host=postgres;Port=5432;Database=roblox_integration_test;Username=roblox_integration_test_user;Password=docker"
+      Redis: "redis:6379"
+      Authorization: "WebInfrastructureTestAuthorization"
+      RccAuthorization: "WebInfrastructureTestRccAuthorization"
+      Jwt__Sessions: "web-infrastructure-session-jwt-secret"

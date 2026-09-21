@@ -1,0 +1,313 @@
+# Production-ready application stack scaffold.
+# Supply values with: docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+
+name: averia-prod
+
+x-dotnet-build: &dotnet-build
+  context: .
+  dockerfile: Roblox/Dockerfile.dotnet-service
+
+x-dotnet-prod-env: &dotnet-prod-env
+  ASPNETCORE_ENVIRONMENT: Production
+  Postgres: "${POSTGRES_CONNECTION}"
+  Redis: "${REDIS_CONNECTION}"
+  RedisAuthentication: "${REDIS_AUTHENTICATION:-}"
+  BaseUrl: "${PUBLIC_BASE_URL}"
+  CdnBaseUrl: "${CDN_BASE_URL}"
+  IsCdnEnabled: "${IS_CDN_ENABLED:-false}"
+  Authorization: "${INTERNAL_SERVICE_AUTHORIZATION}"
+  ArbiterAuthorization: "${INTERNAL_SERVICE_AUTHORIZATION}"
+  RccAuthorization: "${RCC_AUTHORIZATION}"
+  Jwt__Sessions: "${JWT_SESSIONS_SECRET}"
+  BotAuthorization: "${BOT_AUTHORIZATION}"
+  Discord__BotToken: "${DISCORD_BOT_TOKEN:-}"
+  Discord__GuildId: "${DISCORD_GUILD_ID:-}"
+  Discord__LogChannelId: "${DISCORD_LOG_CHANNEL_ID:-}"
+  HCaptcha__Public: "${HCAPTCHA_PUBLIC}"
+  HCaptcha__Private: "${HCAPTCHA_PRIVATE}"
+  PackageShirtAssetId: "${PACKAGE_SHIRT_ASSET_ID:-0}"
+  PackagePantsAssetId: "${PACKAGE_PANTS_ASSET_ID:-0}"
+  LeakCheckApiKey: "${LEAKCHECK_API_KEY:-}"
+  Twitter__Bearer: "${TWITTER_BEARER:-}"
+  Render__BaseUrl: "${ARBITER_RENDER_URL:-https://arbiter.averia.lol}"
+  Render__AssetQueue__FastLaneConcurrency: "${ASSET_RENDER_FAST_LANE_CONCURRENCY:-2}"
+  Render__AssetQueue__StreamConcurrency: "${ASSET_RENDER_STREAM_CONCURRENCY:-2}"
+  Render__AssetQueue__ProcessingLeaseSeconds: "${ASSET_RENDER_LEASE_SECONDS:-120}"
+  Render__AssetQueue__JobDeadlineSeconds: "${ASSET_RENDER_DEADLINE_SECONDS:-90}"
+  Render__AssetQueue__MaximumAttempts: "${ASSET_RENDER_MAXIMUM_ATTEMPTS:-4}"
+  Render__AssetQueue__ReconciliationIntervalSeconds: "${ASSET_RENDER_RECONCILIATION_SECONDS:-300}"
+  Render__AssetQueue__ReconciliationBatchSize: "${ASSET_RENDER_RECONCILIATION_BATCH_SIZE:-100}"
+  AssetValidation__BaseUrl: "http://asset-validation:4300"
+  AssetValidation__Authorization: "${ASSET_VALIDATION_AUTHORIZATION}"
+  Directories__Public: "/data/public/"
+  Directories__Asset: "/data/asset/"
+  Directories__Storage: "/data/storage/"
+  Directories__Thumbnails: "/data/thumbnails/"
+  Directories__GroupIcons: "/data/group-icons/"
+  Directories__XmlTemplates: "/app/Roblox/Roblox.Libraries/Templates/"
+  Directories__JsonData: "/app/Roblox/Roblox.Libraries/Json/"
+  Directories__ScriptsData: "/app/Roblox/Roblox.Libraries/StudioScripts/"
+  Directories__AdminBundle: "/app/admin/public/"
+  Directories__EconomyChatBundle: "/app/economy-chat/build/"
+  Directories__RCCLuaScripts: "/app/Roblox/Roblox.Rendering/internalscripts/"
+  Directories__RCCService: "/app/RCCService/"
+  Directories__RCCServiceGames: "/app/RCCService/"
+  OpenTelemetry__OtlpEndpoint: "http://otel-collector:4317"
+
+x-dotnet-prod-service: &dotnet-prod-service
+  restart: unless-stopped
+  networks:
+    - averia
+  depends_on:
+    migrations:
+      condition: service_completed_successfully
+  volumes:
+    - public_data:/data/public
+    - asset_data:/data/asset
+    - storage_data:/data/storage
+    - thumbnails_data:/data/thumbnails
+    - group_icons_data:/data/group-icons
+
+volumes:
+  public_data:
+  asset_data:
+  storage_data:
+  thumbnails_data:
+  group_icons_data:
+  prometheus_data:
+
+networks:
+  averia:
+    driver: bridge
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.156.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./telemetry/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    expose:
+      - "4317"
+      - "8889"
+    networks:
+      - averia
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yaml"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.12.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}"
+    volumes:
+      - ./telemetry/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+    networks:
+      - averia
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrations:
+    build:
+      context: .
+      dockerfile: Roblox/Dockerfile.migrations
+    networks:
+      - averia
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-}"
+      DB_HOST: "${DB_HOST:-}"
+      DB_PORT: "${DB_PORT:-5432}"
+      DB_USER: "${DB_USER:-}"
+      DB_PASS: "${DB_PASS:-}"
+      DB_NAME: "${DB_NAME:-}"
+    restart: "no"
+
+  api-proxy:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Roblox.ApiProxy/Roblox.ApiProxy.csproj"
+        ASSEMBLY_NAME: "Roblox.ApiProxy"
+    ports:
+      - "${API_PROXY_HTTP_PORT:-80}:5200"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5200"
+      FrontendProxy__DestinationPrefix: "http://frontend:3000/"
+      FrontendProxy__PublicHosts__0: "${PUBLIC_HOST_PRIMARY}"
+      FrontendProxy__PublicHosts__1: "${PUBLIC_HOST_WWW:-}"
+      FrontendProxy__PublicHosts__2: "${PUBLIC_HOST_EXTRA:-}"
+      ReverseProxy__Clusters__website-cluster__Destinations__primary__Address: "http://roblox-website:5000"
+      ReverseProxy__Clusters__gamepersistence-cluster__Destinations__primary__Address: "http://game-persistence:5203"
+      ReverseProxy__Clusters__api-cluster__Destinations__primary__Address: "http://api-service:5204"
+      ReverseProxy__Clusters__donation-cluster__Destinations__primary__Address: "http://donation-service:5205"
+      ReverseProxy__Clusters__avatar-cluster__Destinations__primary__Address: "http://avatar-service:5207"
+      ReverseProxy__Clusters__thumbnails-cluster__Destinations__primary__Address: "http://thumbnails-service:5208"
+      ReverseProxy__Clusters__admin-cluster__Destinations__primary__Address: "http://admin-service:5210"
+    depends_on:
+      roblox-website:
+        condition: service_started
+      game-persistence:
+        condition: service_started
+      api-service:
+        condition: service_started
+      donation-service:
+        condition: service_started
+      avatar-service:
+        condition: service_started
+      thumbnails-service:
+        condition: service_started
+      admin-service:
+        condition: service_started
+      frontend:
+        condition: service_started
+
+  roblox-website:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Roblox.Website/Roblox.Website.csproj"
+        ASSEMBLY_NAME: "Roblox.Website"
+    expose:
+      - "5000"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5000"
+      OwnerUserId__0: "${OWNER_USER_ID:-1}"
+
+  game-persistence:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Services/Roblox.Services.DataStore/Roblox.Services.DataStore.csproj"
+        ASSEMBLY_NAME: "Roblox.Services.DataStore"
+    expose:
+      - "5203"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5203"
+
+  api-service:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Services/Roblox.Services.Api/Roblox.Services.Api.csproj"
+        ASSEMBLY_NAME: "Roblox.Services.Api"
+    expose:
+      - "5204"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5204"
+
+  donation-service:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Services/Roblox.Services.Donation/Roblox.Services.Donation.csproj"
+        ASSEMBLY_NAME: "Roblox.Services.Donation"
+    expose:
+      - "5205"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5205"
+      Discord__WebhookUrl: "${DISCORD_DONATION_WEBHOOK_URL:-}"
+      Stripe__WebhookSecret: "${STRIPE_WEBHOOK_SECRET:-}"
+      Kofi__VerificationToken: "${KOFI_VERIFICATION_TOKEN:-}"
+      Rewarble__ApiKey: "${REWARBLE_API_KEY:?set REWARBLE_API_KEY}"
+      Rewarble__BaseUrl: "${REWARBLE_BASE_URL:-https://api.rewarble.com}"
+      Rewarble__TestMode: "${REWARBLE_TEST_MODE:-false}"
+
+  data-service:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Services/Roblox.Services.Data/Roblox.Services.Data.csproj"
+        ASSEMBLY_NAME: "Roblox.Services.Data"
+    expose:
+      - "5206"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5206"
+
+  avatar-service:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Services/Roblox.Services.Avatar/Roblox.Services.Avatar.csproj"
+        ASSEMBLY_NAME: "Roblox.Services.Avatar"
+    expose:
+      - "5207"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5207"
+
+  thumbnails-service:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Services/Roblox.Services.Thumbnails/Roblox.Services.Thumbnails.csproj"
+        ASSEMBLY_NAME: "Roblox.Services.Thumbnails"
+    expose:
+      - "5208"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5208"
+
+  admin-service:
+    <<: *dotnet-prod-service
+    build:
+      <<: *dotnet-build
+      args:
+        PROJECT_PATH: "Roblox/Services/Roblox.Services.Admin/Roblox.Services.Admin.csproj"
+        ASSEMBLY_NAME: "Roblox.Services.Admin"
+    expose:
+      - "5210"
+    environment:
+      <<: *dotnet-prod-env
+      ASPNETCORE_URLS: "http://0.0.0.0:5210"
+      OwnerUserId__0: "${OWNER_USER_ID:-1}"
+      Telemetry__PrometheusBaseUrl: "http://prometheus:9090/"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        FRONTEND_CONFIG: "config.docker-prod.json"
+    expose:
+      - "3000"
+    networks:
+      - averia
+    restart: unless-stopped
+
+  asset-validation:
+    build:
+      context: ./AssetValidationServiceV2
+      dockerfile: Dockerfile
+    expose:
+      - "4300"
+    networks:
+      - averia
+    restart: unless-stopped

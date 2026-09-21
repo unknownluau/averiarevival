@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="JWT" Version="11.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Roblox.Configuration\Roblox.Configuration.csproj" />
+    <ProjectReference Include="..\Roblox.Dto\Roblox.Dto.csproj" />
+    <ProjectReference Include="..\Roblox.Exceptions\Roblox.Exceptions.csproj" />
+    <ProjectReference Include="..\Roblox.Libraries\Roblox.Libraries.csproj" />
+    <ProjectReference Include="..\Roblox.Models\Roblox.Models.csproj" />
+    <ProjectReference Include="..\Roblox.Services\Roblox.Services.csproj" />
+  </ItemGroup>
+
+</Project>
