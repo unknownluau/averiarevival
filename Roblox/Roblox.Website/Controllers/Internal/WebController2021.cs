@@ -59,128 +59,31 @@ public class WebController2021 : ControllerBase
 
     }
 
-    private static readonly MemoryCache _cache = new MemoryCache(new MemoryCacheOptions());
-	private static readonly TimeSpan _cacheDur = TimeSpan.FromMinutes(2);
-	// VERY ugly hack but fuck that stupid fuckig remote view it made me wanna kms, this takes a bit longer but most people go to the url from the home which works anyway
-	    private async Task<IActionResult> GetPage(string viewName, IEnumerable<dynamic>? arguments = null)
+    private async Task<IActionResult> GetPage(string viewName, IEnumerable<dynamic>? arguments = null)
     {
-        try
+        var newArgs = new List<dynamic>();
+        var v = new ViewUserInfo()
         {
-            using var httpClient = new HttpClient(new HttpClientHandler()
-            {
-                AllowAutoRedirect = false,
-                UseCookies = false,
-                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true,
-                AutomaticDecompression = DecompressionMethods.All
-            })
-            {
-                Timeout = TimeSpan.FromSeconds(30)
-            };
-            
-            // Map strictly to the incoming URL path requested by the browser
-            var targetHost = "http://localhost:3000";
-            var requestUrl = $"{targetHost}{HttpContext.Request.Path}{HttpContext.Request.QueryString}";
-
-            var request = new HttpRequestMessage(new HttpMethod(HttpContext.Request.Method), requestUrl);
-
-            // Copy all incoming browser headers perfectly
-            foreach (var header in HttpContext.Request.Headers)
-            {
-                if (header.Key.Equals("Accept-Encoding", StringComparison.OrdinalIgnoreCase) ||
-                    header.Key.Equals("Host", StringComparison.OrdinalIgnoreCase) ||
-                    header.Key.Equals("Connection", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-                
-                if (!request.Headers.TryAddWithoutValidation(header.Key, header.Value.ToString()))
-                {
-                    request.Content?.Headers.TryAddWithoutValidation(header.Key, header.Value.ToString());
-                }
-            }
-
-            if (HttpContext.Request.ContentLength > 0)
-            {
-                request.Content = new StreamContent(HttpContext.Request.Body);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue(HttpContext.Request.ContentType);
-            }
-            
-            // Send the proxy message
-            var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-
-            // Pass the exact status code back to the visitor
-            HttpContext.Response.StatusCode = (int)response.StatusCode;
-
-            // Copy core headers directly (Fixes the MIME type checking and missing content types)
-            var forbiddenHeaders = new[] { "Transfer-Encoding", "Connection", "Host" };
-            foreach (var header in response.Headers)
-            {
-                if (!forbiddenHeaders.Contains(header.Key))
-                {
-                    HttpContext.Response.Headers[header.Key] = header.Value.ToArray();
-                }
-            }
-
-            if (response.Content != null)
-            {
-                foreach (var header in response.Content.Headers)
-                {
-                    if (!forbiddenHeaders.Contains(header.Key))
-                    {
-                        HttpContext.Response.Headers[header.Key] = header.Value.ToArray();
-                    }
-                }
-
-                // FIX: Stream the raw data directly using CopyToAsync just like the other project!
-                await response.Content.CopyToAsync(HttpContext.Response.Body);
-            }
-            
-            return new EmptyResult();
-        }
-        catch (Exception ex)
+            userId = safeUserSession.userId,
+            username = safeUserSession.username,
+            created = safeUserSession.created,
+            isAdmin = false, // obsolete
+            isModerator = false, // obsolete
+            sessionKey = safeUserSession.sessionKey,
+            status = safeUserSession.accountStatus,
+            theme = ThemeTypes.Light.ToString(),
+        };
+        newArgs.Add(v);
+        if (arguments != null)
         {
-            Console.WriteLine($"[Proxy Core Failure]: {ex}");
-            return StatusCode(500, "InternalServerError");
+            foreach (var item in arguments)
+            {
+                newArgs.Add(item);
+            }
         }
+        var result = await RemoteView.GetView(viewName, newArgs);
+        return Content(result, "text/html");
     }
-
-    // private async Task<IActionResult> GetPage(string viewName, IEnumerable<dynamic>? arguments = null)
-    // {
-    //     var newArgs = new List<dynamic>();
-    //     var v = new ViewUserInfo()
-    //     {
-    //         userId = safeUserSession.userId,
-    //         username = safeUserSession.username,
-    //         created = safeUserSession.created,
-    //         isAdmin = false, // obsolete
-    //         isModerator = false, // obsolete
-    //         sessionKey = safeUserSession.sessionKey,
-    //         status = safeUserSession.accountStatus,
-    //         theme = ThemeTypes.Light.ToString(),
-    //     };
-    //     newArgs.Add(v);
-    //     if (arguments != null)
-    //     {
-    //         foreach (var item in arguments)
-    //         {
-    //             newArgs.Add(item);
-    //         }
-    //     }
-    //     var result = await RemoteView.GetView(viewName, newArgs);
-    //     return Content(result, "text/html");
-    // }
-
-    // public static dynamic ToDynamic<T>(T obj)
-    // {
-    //     IDictionary<string, object> expando = new ExpandoObject();
-
-    //     foreach (var propertyInfo in typeof(T).GetProperties())
-    //     {
-    //         var currentValue = propertyInfo.GetValue(obj);
-    //         expando.Add(propertyInfo.Name, currentValue);
-    //     }
-    //     return expando as ExpandoObject;
-    // }
 
     [HttpGet("/home")]
     public async Task<IActionResult> GetHome()
