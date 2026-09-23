@@ -32,7 +32,7 @@ function showRobotCheck(formEl, hiddenField) {
     document.getElementById('robotCheckOverlay').style.display = 'flex';
 
     if (!turnstileRendered) {
-        hcaptcha.render('turnstileWidget', {
+        turnstile.render('#turnstileWidget', {
             sitekey: siteKey,
             theme: 'light',
             callback: function (token) {
@@ -47,7 +47,7 @@ function showRobotCheck(formEl, hiddenField) {
         });
         turnstileRendered = true;
     } else {
-        hcaptcha.reset('turnstileWidget');
+        turnstile.reset('#turnstileWidget');
     }
 }
 

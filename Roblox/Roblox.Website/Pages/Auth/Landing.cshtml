@@ -220,7 +220,7 @@
 
             <form method="post" id="signupForm">
                 <input type="hidden" name="formAction" value="signup">
-                <input type="hidden" name="h-captcha-response" id="signupCaptchaResponse">
+                <input type="hidden" name="cf-turnstile-response" id="signupCaptchaResponse">
                 @Html.AntiForgeryToken()
 
                 <input type="text" name="signupUsername" class="form-control mb-2" placeholder="Username" required @(Model.signupDisabled ? "disabled" : "")>
@@ -256,7 +256,7 @@
 
             <form method="post" id="loginForm">
                 <input type="hidden" name="formAction" value="login">
-                <input type="hidden" name="h-captcha-response" id="loginCaptchaResponse">
+                <input type="hidden" name="cf-turnstile-response" id="loginCaptchaResponse">
                 @Html.AntiForgeryToken()
                 <input type="text" name="loginUsername" placeholder="Username" class="form-control mb-2" value="@Model.loginUsername" @(Model.loginDisabled ? "disabled" : "")>
                 <input type="password" name="loginPassword" placeholder="Password" class="form-control mb-2" @(Model.loginDisabled ? "disabled" : "")>
@@ -288,7 +288,7 @@
 
     <div id="landing-config" data-sitekey="@Model.siteKey" data-autoopenlogin="@(Model.loginError != null ? "true" : "false")" style="display:none;"></div>
 
-    <script src="https://js.hcaptcha.com/1/api.js?render=explicit" async defer></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
     <script src="/js/landing.js" defer></script>
 
     <script>
