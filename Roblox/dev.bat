@@ -1,1 +1,2 @@
 dotnet watch run --project Roblox.Website --hot-reload --configuration Release
+pause
