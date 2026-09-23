@@ -105,7 +105,6 @@ public static class RobloxWebsiteBuilderExtensions
 
         RenderingHandler.Configure(arbiterUrl, options.ArbiterAuthorization, options.Render.UseBinaryTransport);
         Roblox.Libraries.RemoteView.RemoteView.Configure("http://localhost:3000", options.Authorization);
-        Roblox.Website.Controllers.RemoteViewController.Configure("http://localhost:3000");
     }
 
     public static IServiceCollection AddRobloxWebsiteServices(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
